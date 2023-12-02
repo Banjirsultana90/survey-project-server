@@ -4,16 +4,16 @@ const app = express()
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
-
 const cookieParser = require('cookie-parser')
 const moment = require('moment');
 
 app.use(cors(
     {
         origin: [
-            'http://localhost:5173'
-            // 'https://ecommerce-project-b67b1.firebaseapp.com',
-            // 'https://ecommerce-project-b67b1.web.app'
+            'http://localhost:5173',
+            'https://survey-project-aadef.firebaseapp.com',
+            'https://survey-project-aadef.web.app'
+            
         ],
         credentials: true
     }
@@ -22,13 +22,10 @@ app.use(express.json())
 app.use(cookieParser())
 const port = process.env.PORT || 5000
 
-
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-const { default: Stripe } = require('stripe');
-const { Await } = require('react-router-dom');
-const uri = `mongodb+srv://${process.env.DB_User}:${process.env.DB_PASSWORD}@cluster0.id4vsgi.mongodb.net/?retryWrites=true&w=majority`;
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.id4vsgi.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
     serverApi: {
         version: ServerApiVersion.v1,
@@ -40,12 +37,10 @@ const client = new MongoClient(uri, {
 async function run() {
 
     const mostVotedSurveys = client.db('surveyDB').collection('allsurvey')
-
     const allcreatedsurvey = client.db('surveyDB').collection('allcreatedsurvey')
     const allvotedfeature = client.db('surveyDB').collection('allvotedfeature')
     const alluser = client.db('surveyDB').collection('alluser')
     const paymentcollection = client.db('surveyDB').collection('paymentcollection')
-
 
     const verifyToken = async (req, res, next) => {
         const token = req.cookies?.token
@@ -57,12 +52,9 @@ async function run() {
             if (err) {
                 return res.status(401).send({ message: 'unauthorized' })
             }
-            // req.user = decoded
             req.decoded = decoded
-
             next()
         })
-
     }
     const verifyAdmin = async (req, res, next) => {
         const email = req.decoded.email;
@@ -72,10 +64,8 @@ async function run() {
         if (!user || user.role !== 'admin') {
             return res.status(403).send({ message: 'Unauthorized access' });
         }
-
         next();
     };
-
 
     // auth api
     app.post('/jwt', async (req, res) => {
@@ -95,7 +85,6 @@ async function run() {
         const user = req.body
         console.log('loging out', user);
         res.clearCookie('token', { maxAge: 0 }).send({ success: true })
-
     })
 
     //users api 
@@ -103,11 +92,9 @@ async function run() {
     app.get('/alluser/surveyor/:email', verifyToken, async (req, res) => {
         const email = req.params.email;
         const user = await alluser.findOne({ email: email });
-
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-
         const isSurveyor = user.role === 'surveyor';
         res.json({ surveyor: isSurveyor });
     });
@@ -115,15 +102,12 @@ async function run() {
     app.get('/alluser/admin/:email', verifyToken, async (req, res) => {
         const email = req.params.email;
         const user = await alluser.findOne({ email: email });
-
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-
         const isAdmin = user.role === 'admin';
         res.json({ admin: isAdmin });
     });
-
 
     app.get('/alluser', verifyToken, async (req, res) => {
         const result = await alluser.find().toArray();
@@ -162,7 +146,6 @@ async function run() {
         }
     });
 
-
     app.post('/alluser', verifyToken, async (req, res) => {
         const user = req.body;
         const query = { email: user.email }
@@ -174,7 +157,6 @@ async function run() {
         res.send(result)
     })
     // vote related api
-
     app.post('/allvotedfeature', verifyToken, async (req, res) => {
         const voteRecord = req.body;
         console.log(voteRecord);
@@ -207,18 +189,14 @@ async function run() {
     });
 
     app.get('/allvotedfeature',verifyToken, async (req, res) => {
-
         const result = await allvotedfeature.find().toArray()
         res.send(result)
 
     })
 
-
     app.get('/allcreatedsurvey', async (req, res) => {
-
         const result = await allcreatedsurvey.find().toArray()
         res.send(result)
-
     })
     app.get('/allcreatedsurvey/:id', async (req, res) => {
 
@@ -236,20 +214,18 @@ async function run() {
         const filter = { _id: new ObjectId(id) };
         const options = { upsert: true }
         const updatesurvey = req.body;
-
         const survey = {
             $set: {
                 title: updatesurvey.title,
                 deadline: updatesurvey.deadline,
                 description: updatesurvey.description,
-                // email: updatesurvey.email,
                 category: updatesurvey.category,
                 questions: updatesurvey.questions,
                 options: updatesurvey.options,
             },
         };
 
-        const result = await alluser
+        const result = await allcreatedsurvey
             .updateOne(filter, survey, options);
         res.send(result);
     });
@@ -258,12 +234,9 @@ async function run() {
         console.log(formdata);
         const timestamp = moment().format();
         formdata.timestamp = timestamp;
-
-
         const result = await allcreatedsurvey.insertOne(formdata)
         res.send(result)
     })
-
     app.post("/create-payment-intent", async (req, res) => {
         const { price } = req.body;
         console.log("Received price:", price);
@@ -291,7 +264,6 @@ async function run() {
     app.get('/payments', verifyToken, verifyAdmin, async (req, res) => {
         const result = await paymentcollection.find().toArray()
         res.send(result)
-
     })
 
     app.get('/payments/:email', verifyToken, async (req, res) => {
@@ -304,50 +276,32 @@ async function run() {
 
     })
 
-
-
     app.post('/payments', async (req, res) => {
         const payment = req.body;
-
-        // Insert payment information into payment collection
         const paymentResult = await paymentcollection.insertOne(payment);
         console.log('Payment info', payment);
-
-        // Check if email exists in the payment object
         if (payment.email) {
-            // Define the query to find the user by email
             const query = { email: payment.email };
-
-            // Update user role in alluser collection
             const updatedUser = await alluser.updateOne(query, {
                 $set: { role: 'prouser' /* Set the role to the desired value */ }
             });
-
-            // Send response with payment result and update result
             res.send({ paymentResult, updatedUser });
         } else {
-            // Send response with only payment result if email is not found
+         
             res.send({ paymentResult });
         }
     });
-
-
     try {
-
-        await client.db("admin").command({ ping: 1 });
-        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        // await client.db("admin").command({ ping: 1 });
+        // console.log("Pinged your deployment. You successfully connected to MongoDB!");
     }
     finally {
-
     }
 }
 run().catch(console.dir);
-
-
 app.get('/', (req, res) => {
     res.send('survey is ongoing')
 })
-
 app.listen(port, () => {
     console.log(`port is running on${port}`);
 })
